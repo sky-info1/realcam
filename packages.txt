@@ -17,7 +17,6 @@
 🟢 0B01 | nc+ cyfra (Local)
 🟢 0500 | SRG Swiss v6,7 (Local)
 🟢 0500 | Eurosport 13e (Local)
-🟢 0500 | ADULT (Local)
 🟢 183E | Rai Full + Tuvisat (Local)
 🟢 183D | Mediasat Italy (Local)
 
