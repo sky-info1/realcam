@@ -15,19 +15,24 @@ import time
 from enigma import gRGB, eTimer, ePoint
 from twisted.web.client import getPage
 
+# التحقق من إصدار بايثون في جهاز الاستقبال لضمان التوافق (Python 2 أو Python 3)
 PY3 = sys.version_info.major >= 3
 
+# الإصدار الحالي للبلجن على جهاز المستخدم
 CURRENT_VERSION = "1.2"
 
+# إعداد وتخزين متغيرات البلجن في نظام Enigma2
 config.plugins.REALCAM = ConfigSubsection()
 config.plugins.REALCAM.username = ConfigText(default="", fixed_size=False)
 config.plugins.REALCAM.password = ConfigText(default="", fixed_size=False)
 config.plugins.REALCAM.protocol = ConfigSelection(default="cccam", choices=[("cccam", "CCCam"), ("newcamd", "Newcamd")])
 config.plugins.REALCAM.destination = ConfigSelection(default="oscam", choices=[("oscam", "OSCam"), ("ncam", "NCam")])
 
+# مسارات ملفات المحاكيات (Softcams) المستهدفة في النظام
 OSCAM_PATH = "/etc/tuxbox/config/oscam.server"
 NCAM_PATH = "/etc/tuxbox/config/ncam.server"
 
+# بيانات الاتصال الخاصة بسيرفرات البث والمنافذ
 CC_HOST = "realcam.site"
 CC_PORTS = ["11130", "11123"]
 
@@ -35,7 +40,7 @@ NC_HOST = "realcam.site"
 NC_PORTS = ["11131", "11122"]
 NC_DESKEY = "0102030405060708091011121314"
 
-# الرابط الأساسي للمستودع الموحد
+# الرابط الأساسي الموحد والمستقر للمستودع الخاص بك على GitHub
 UPDATE_BASE = "https://raw.githubusercontent.com/sky-info1/realcam/main/"
 NOTICE_URL = UPDATE_BASE + "notice.txt"
 PACKAGES_URL = UPDATE_BASE + "packages.txt"
@@ -47,7 +52,7 @@ def set_timer_callback(timer, callback):
         timer.callback.append(callback)
         return None
 
-# --- شريط الأخبار المتحرك ---
+# --- شريط الأخبار المتحرك (Ticker) ---
 current_ticker = None
 
 class REALCAMTicker(Screen):
@@ -87,7 +92,7 @@ class REALCAMTicker(Screen):
             self.move_timer.stop()
         self.close()
 
-# --- محرك ذكي مدمج (إشعار الأخبار + فحص التحديث الصامت) ---
+# --- محرك ذكي مدمج في الخلفية (إشعار الأخبار + فحص التحديث الصامت المؤمن) ---
 global_session = None
 background_timer = None
 last_notice_content = ""
@@ -126,22 +131,26 @@ def process_remote_data(data):
                 except:
                     pass
                     
-        # التحديث يتم بصمت تام إذا وجد إصدار أحدث
+        # مقارنة رقم إصدار السيرفر بالإصدار المحلي الحالي لتفعيل التحديث التلقائي
         if remote_version > CURRENT_VERSION:
             do_silent_update()
 
 def do_silent_update():
-    cache_buster = "?t=" + str(time.time())
+    # استخدام الطابع الزمني الفعلي كـ Cache Buster لكسر كاش خوادم GitHub تماماً
+    cache_buster = "?t=" + str(int(time.time()))
     plugin_dir = "/usr/lib/enigma2/python/Plugins/Extensions/REALCAM/"
     
+    # بناء الأمر البرمجي المتسلسل: التحميل، مسح الكاش المترجم القديم لضمان القراءة الحية، ثم sync
     cmd = (
         "wget -q --no-check-certificate -O {0}plugin.py \"{1}plugin.py{2}\" && "
         "wget -q --no-check-certificate -O {0}plugin.png \"{1}plugin.png{2}\" && "
         "wget -q --no-check-certificate -O {0}setup.xml \"{1}setup.xml{2}\" && "
         "wget -q --no-check-certificate -O {0}__init__.py \"{1}__init__.py{2}\" && "
+        "rm -f {0}*.pyc && "
         "sync"
     ).format(plugin_dir, UPDATE_BASE, cache_buster)
     
+    # تنفيذ السكربت صامتاً 100% في خلفية نظام التشغيل بدون أي إشعار مزعج للمستخدم
     os.system("sh -c '" + cmd + "'")
 
 def autostart(reason, **kwargs):
@@ -154,7 +163,7 @@ def autostart(reason, **kwargs):
             background_timer.start(180000, False)
             eTimer.singleShot(15000, check_background_notice)
 
-# --- شاشة البلجن الرئيسية ---
+# --- شاشة البلجن الرئيسية (REALCAM Screen Interface) ---
 class REALCAMScreen(Screen):
     skin = """
     <screen name="REALCAMScreen" position="center,center" size="1150,850" title="REALCAM Config" backgroundColor="#1A1A1A">
@@ -259,6 +268,8 @@ class REALCAMScreen(Screen):
         self.checkServerTimer = eTimer()
         set_timer_callback(self.checkServerTimer, self.check_oscam_status)
         self.onLayoutFinish.append(self.startTimers)
+        
+        # استدعاء دالة جلب حزمة الباقات الحية من السيرفر عند فتح الشاشة
         self.onLayoutFinish.append(self.load_packages)
 
     def load_packages(self):
@@ -353,8 +364,10 @@ class REALCAMScreen(Screen):
     def set_status_display(self, text, color):
         self["server_state_value"].setText(text)
         if self["status_led"].instance:
+            self["status_led"].instance.removeForegroundColor()
             self["status_led"].instance.setForegroundColor(gRGB(color))
         if self["server_state_value"].instance:
+            self["server_state_value"].instance.removeForegroundColor()
             self["server_state_value"].instance.setForegroundColor(gRGB(color))
 
     def updateFocus(self):
